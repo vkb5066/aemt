@@ -1,0 +1,125 @@
+**********************
+***INPUT PARAM FILE***
+**********************
+//The file is expected to be written as something like this:
+
+BEGIN DOMAIN
+-1.1 1.1
+-1.2 1.2
+-0.6 0.6
+END DOMAIN
+
+BEGIN GRIDPOINTS
+90
+90
+80
+END GRIDPOINTS
+
+BEGIN LATTICE
+1.1 1.2 0.0
+0.0 1.4 0.0
+0.0 0.0 0.7 
+END LATTICE
+
+BEGIN IDWPARAMS
+0.4
+16
+END IDWPARAMS
+
+BEGIN SMEARPARAMS
+0.3 
+0.3 
+0.2
+END SMEARPARAMS
+
+BEGIN *TEMPS
+explicit
+12
+5 6 7 10 15 30 60 120 180 300 500 1000
+END *TEMPS
+
+BEGIN *TEMPS
+range
+12
+5 1000 
+END *TEMPS
+
+BEGIN *MUS
+explicit 
+...
+END *MUS
+
+BEGIN *MUS
+range
+...
+END *MUS
+
+BEGIN *BANDS
+explicit
+...
+END *BANDS
+
+BEGIN *BANDS
+range
+...
+END *BANDS
+
+STOP
+
+//Where DOMAIN gives the vectors of a rectangle originating from 
+//gamma in the x, y, and z directions (so here, the x length goes
+//from -1.1 to 1.1 2pi/a) surrounding the first BZ,  
+//
+//GRIDPOINTS is the number of gridpoints for the x, y, and z 
+//directions in the rectangle,
+//
+//LATTICE is the reciprocal lattice given as three ROW vectors i.e. 
+//the first lattice vector is b1 = (b1x, b1y, b1z) = (1.1 1.2 0.0)
+//(these constitute the above x, y, and z directions),
+//
+//IDWPARAMS are the inverse distance weighting parameters: first 
+//the radius to consider around a point, second is the power param
+//(an integer),
+//
+//SMEARPARAMS are the smearing values used for derivatives.  High 
+//smearing increases the runtime and can arbitrarily flatten band 
+//shapes, while low smearing will result in non-smooth derivatives.
+//Reasonable values are (number of grid points / number of k points)
+//in any given direction.  If any smear parameters are 0.0, no 
+//smoothing will be applied in that direction.
+// 
+//* = 'V' or 'C' for valance or conduction bands.  See below:
+//
+//*TEMPS are the temperatures to calculate the mass at.  Can either be
+//given as explicit numbers (first number is the number of entries
+// that will be written) or as a range (in the range mode, the 
+//first, second, and third numbers are the begin, end and num of 
+//steps (begin and end values are inclusive - 1 4 5 would give the 
+//temperatures to be calculated as 1 1.75 2.5 3.25 4),
+//
+//*MUS are the chemical potentials to use.  Can either be specified
+//as explicit values or as a range (see TEMPS),
+// 
+//*BANDS (* = 'V' for valance or 'C' for conduction) are the bands to
+//include in the calculation.  Can either be written as an explicit 
+//list of numbers (see TEMPS) or a range (begin and end values are 
+//inclusive (similar to TEMPS excpet that only the beginning and
+//ending bands are written, and all between them will be considered.
+//So '0 6' would calculate bands 0, 1, 2, 3, 4, 5, 6).
+
+*************************
+***INPUT EIGENVAL FILE***
+*************************
+//The file is expected to be written something like this:
+2 3 //the # of k points, the # of eigenvalues per point
+-0.125 -0.125 -0.125 //kx, ky, kx in cartesian (2pi/a)
+-1.01 //energy 0
+0.01 //energy 1
+3.2 //energy 2
+0.125 0.125 0.125
+-2.03
+-0.12
+2.58
+STOP
+//of course, the slashes aren't necessary.  
+
