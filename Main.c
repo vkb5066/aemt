@@ -64,11 +64,11 @@ int main(int argc, char *argv[]){
 
 	//Get the derivative / integration grid + connection tables
 	printf("Initializing eval grid ... ");
-	int **kpConTable; double **kpDisTable; int *kcdEntryLens;
+	int **kpConTable; double **kpIDisTable; int *kcdEntryLens;
 	unsigned int gridSize;
 	struct gp **grid = GiveInitGrid(domain, gridPoints, kdNodeLat, 
 									kdNodeKpt, idwRad, &gridSize, 
-									&kpConTable, &kpDisTable, 
+									&kpConTable, &kpIDisTable, 
 									&kcdEntryLens);
 	unsigned int **sizes;
 	SplitArr(grid, gridSize, N_THREADS, &sizes);
@@ -90,8 +90,8 @@ int main(int argc, char *argv[]){
 	InitMinv(&eMinv, nCMus, cMus, nCTemps, cTemps);
 	for(unsigned int i = 0; i < nCBands; ++i){
 		printf(" band %i / %i", i + 1, nCBands);
-		SetEnergies(&grid, 0, gridSize, idwPow, cBands[i], kcdEntryLens, 
-					kpDisTable, eigs, kpConTable);
+		SetEnergies(&grid, 0, gridSize, idwPow, idwRad, cBands[i], 
+					kcdEntryLens, kpIDisTable, eigs, kpConTable);
 		SetSmoothEnergies(&grid, 0, gridSize, smearParams, diffs);
 		SetDerivs(&grid, 0, gridSize);
 
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]){
 		///WriteBS("cz", grid, 2, pivot);
 		/// 
 		///Uncomment to write full BZ
-		///WriteFullBs("full", grid, gridSize);
+		///WriteFullBs("fullC", grid, gridSize);
 
 		for(unsigned int mI = 0; mI < nCMus; ++mI){
 			for(unsigned int tI = 0; tI < nCTemps; ++tI){
@@ -121,8 +121,8 @@ int main(int argc, char *argv[]){
 	InitMinv(&hMinv, nVMus, vMus, nVTemps, vTemps);
 	for(unsigned int i = 0; i < nVBands; ++i){
 		printf(" band %i / %i", i + 1, nVBands);
-		SetEnergies(&grid, 0, gridSize, idwPow, vBands[i], kcdEntryLens,
-					kpDisTable, eigs, kpConTable);
+		SetEnergies(&grid, 0, gridSize, idwPow, idwRad, vBands[i], 
+					kcdEntryLens, kpIDisTable, eigs, kpConTable);
 		SetSmoothEnergies(&grid, 0, gridSize, smearParams, diffs);
 		SetDerivs(&grid, 0, gridSize);
 
@@ -131,9 +131,10 @@ int main(int argc, char *argv[]){
 		///WriteBS("vx", grid, 0, pivot);
 		///WriteBS("vy", grid, 1, pivot);
 		///WriteBS("vz", grid, 2, pivot);
+		///WriteDiagBS("vxy", grid, 0, 1, pivot);
 		/// 
 		///Uncomment to write full BZ
-		//WriteFullBs("full", grid, gridSize);
+		///WriteFullBs("fullV", grid, gridSize);
 
 		for(unsigned int mI = 0; mI < nVMus; ++mI){
 			for(unsigned int tI = 0; tI < nVTemps; ++tI){
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]){
 	free(cBands);
 	FreeArr_nxm_d(&eigs, nEigs);
 	FreeArr_nxm_i(&kpConTable, gridSize);
-	FreeArr_nxm_d(&kpDisTable, gridSize);
+	FreeArr_nxm_d(&kpIDisTable, gridSize);
 	for(unsigned int i = 0; i < gridSize; ++i){
 		free(grid[i]);
 	}

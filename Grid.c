@@ -29,7 +29,7 @@ void FillDifferentals(double **arr, const double *lims, const int *nGridPts){
 struct gp** GiveInitGrid(const double *domain, const int *nGps,
 						const void *rlKDNode, const double *kKDNode,
 						const double kpRad, unsigned int *gridSize,
-						int ***kCTable, double ***dTable, 
+						int ***kCTable, double ***idTable, 
 						int **kpdTableLens){
 	///Find the index of the gamma point:
 	///If any grid point's closest neighbor is gamma ({0., 0., 0.}),
@@ -109,13 +109,16 @@ struct gp** GiveInitGrid(const double *domain, const int *nGps,
 
 	//Prep to complete connection tables
 	*kCTable = calloc(tableSize, sizeof(int*));
-	*dTable = calloc(tableSize, sizeof(double*));
+	*idTable = calloc(tableSize, sizeof(double*));
 	*kpdTableLens = calloc(tableSize, sizeof(int*));
 
 	//(More) internal variables
 	double x_ = 0.; double y_ = 0.; double z_ = 0.; ///k-point data
 	char usePoint = '!';
 	int testIndex = -1;
+
+	//Extra bit to add to 1/(x) to avoid infinity
+	const double extra = kpRad/(1.0E10);
 
 	//Now reduce the list to points that are either in the BZ or 
 	//close.  Do the complicated calculations for those in BZ
@@ -164,7 +167,7 @@ struct gp** GiveInitGrid(const double *domain, const int *nGps,
 		}
 
 		(*kCTable)[count] = malloc(resSize*sizeof(int));
-		(*dTable)[count] = malloc(resSize*sizeof(double));
+		(*idTable)[count] = malloc(resSize*sizeof(double));
 		(*kpdTableLens)[count] = resSize;
 
 		for (unsigned int j = 0; j < resSize; ++j) {
@@ -172,7 +175,8 @@ struct gp** GiveInitGrid(const double *domain, const int *nGps,
 			int thisKIndex = (int*)kd_res_item3(kpRes, &x_, &y_, &z_);
 
 			(*kCTable)[count][j] = thisKIndex;
-			(*dTable)[count][j] = Dist(x, y, z, x_, y_, z_);
+			(*idTable)[count][j] = 1.0/(Dist(x, y, z, x_, y_, z_) + 
+										extra);
 
 			kd_res_next(kpRes);
 		}
@@ -188,7 +192,7 @@ struct gp** GiveInitGrid(const double *domain, const int *nGps,
 		if(i > count){
 			free(redArr[i]);
 			free((*kCTable)[i]);
-			free((*dTable)[i]);
+			free((*idTable)[i]);
 			free((*kpdTableLens)[i]);
 		}
 		free(gCTable[i]);
@@ -216,23 +220,26 @@ struct gp** GiveInitGrid(const double *domain, const int *nGps,
 //indices of the grid for this thread to go over.  There are no 
 //mutexs here, so make sure begs, ends never overlap!!!
 void SetEnergies(struct gp ***grid, const int beg, const int end,
-				 const int idwPow, const int bandIndex, 
-				 const int *tableLens, const double **dists, 
+				 const int idwPow, const double rad, 
+				 const int bandIndex, 
+				 const int *tableLens, const double **iDists, 
 				 const double **eigs, const int **conTable){
 
 	double num = 0.0; double den = 0.0;
 	double wght = 0.0;
+	const double iRad = 1.0/rad;
 	for(unsigned int i = beg; i < end; ++i){
 		///Inverse distance weighting: doi:10.1145/800186.810616
+		///Update 2.7.2022: Improved for small choice of idwRad
 		num = 0.0; den = 0.0;
 		for(unsigned int j = 0; j < tableLens[i]; ++j){
-			if(dists[i][j] < IDW_DIST_TOL){
+			if(iDists[i][j] > INV_IDW_DIST_TOL){
 				num = eigs[conTable[i][j]][bandIndex];
 				den = 1.0;
 				break;
 			}
 
-			wght = 1.0/IntPow_d(dists[i][j], idwPow);
+			wght = IntPow_d(iDists[i][j] - iRad, idwPow);
 			num += wght*eigs[conTable[i][j]][bandIndex];
 			den += wght;
 		}

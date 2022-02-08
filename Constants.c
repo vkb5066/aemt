@@ -21,8 +21,9 @@ const extern double PI = 3.141592654;
 const extern double BOLTZMANN = 8.617333262145E-5; ///eV / K
 const extern double MINV_REL_CONV = 0.131234202; ///angst^2/(eV s^2)
 												 ///-> untiless
-const extern double IDW_DIST_TOL = 1.0E-12; ///tol b4 gridpoint is 
-						                    ///considered "on top of"
-											///a k pt
+const extern double INV_IDW_DIST_TOL = 1.0/1.0E-12; ///inv tol b4 gp 
+													///is considered 
+						                            ///"on top of"
+											        ///a k pt
 const extern int STD_CUTOFF = 3;
 

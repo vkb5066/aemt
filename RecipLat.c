@@ -69,8 +69,11 @@ double** GetRecipLatPts(const int nPtsPerDirection,
 //Return the index of gamma from an array of 3d points
 int GetGammaIndex(const void* kdNode) {
 	double dum[3] = {0., 0., 0.}; ///needed for unix systems >:(
-	void* res = kd_nearest3(kdNode, 0.0, 0.0, 0.0);
-	int gIndex = (int)kd_res_item3(res, dum[0], dum[1], dum[2]);
+	const double zeroX = 0.0; 
+	const double zeroY = 0.0; 
+	const double zeroZ = 0.0; 
+	void* res = kd_nearest3(kdNode, zeroX, zeroY, zeroZ);
+	int gIndex = (int)kd_res_item3(res, &dum[0], &dum[1], &dum[2]);
 	kd_res_free(res);
 
 	return gIndex;

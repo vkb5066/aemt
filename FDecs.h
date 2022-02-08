@@ -14,7 +14,7 @@ const extern double ABS_MEFF_MAX;
 const extern double PI;
 const extern double BOLTZMANN;
 const extern double MINV_REL_CONV;
-const extern double IDW_DIST_TOL; 
+const extern double INV_IDW_DIST_TOL; 
 const extern int STD_CUTOFF;
 
 //Input / output
@@ -54,7 +54,7 @@ struct gp** GiveInitGrid(const double*, const int*, const void*,
 						 const double*, const double, unsigned int*, 
 						 int***, double***, int**);
 void SetEnergies(struct gp***, const int, const int, const int, 
-				 const int, const int*, const double**, 
+				 const double, const int, const int*, const double**, 
 				 const double**, const int**);
 void SetSmoothEnergies(struct gp***, const int, const int, 
 					   const double*, const double*);
@@ -102,9 +102,12 @@ int GetGammaIndex(const void*);
 //Extra tools
 double DistSqd(const double, const double, const double,
 			   const struct gp*);
+double DistArr(const double*, const double*);
 int FindIndex(const struct gp**, const int, const double, 
 			  const double, const double);
 int FindMaxima(const struct gp**, const int, const int);
 int FindMinima(const struct gp**, const int, const int);
 void WriteBS(const char*, const struct gp**, const int, const int);
+void WriteDiagBS(const char*, const struct gp**, const int, 
+				 const int, const int);
 void WriteFullBs(const char*, const struct gp**, const unsigned int);
