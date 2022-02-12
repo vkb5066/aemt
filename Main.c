@@ -5,9 +5,9 @@
 #include "extern//kdtree-master//kdtree.h"
 
 
-const char INFILE_LOC[255] = "../in.aem";
-const char EIGEN_LOC[255] = "../eig.aem";
-const char OUTFILE_LOC[255] = "../out.aem";
+const char INFILE_LOC[255] = "in.aem";
+const char EIGEN_LOC[255] = "eig.aem";
+const char OUTFILE_LOC[255] = "out.aem";
 
 const int N_RECIP_IMGS = 3;
 unsigned int N_THREADS = 1;
@@ -77,6 +77,8 @@ int main(int argc, char *argv[]){
 	kd_free(kdNodeLat);
 	printf("done\n");
 
+	//Holds extrema for bands as (max, min) - unsmoothed
+	double *uExt = malloc(2*sizeof(double));
 
 	//Move over all bands, mus, and temperatures:
 	//Set energies, then derivs, then preform integrals
@@ -90,13 +92,15 @@ int main(int argc, char *argv[]){
 	InitMinv(&eMinv, nCMus, cMus, nCTemps, cTemps);
 	for(unsigned int i = 0; i < nCBands; ++i){
 		printf(" band %i / %i", i + 1, nCBands);
-		SetEnergies(&grid, 0, gridSize, idwPow, idwRad, cBands[i], 
-					kcdEntryLens, kpIDisTable, eigs, kpConTable);
-		SetSmoothEnergies(&grid, 0, gridSize, smearParams, diffs);
+		SetEnergies(&grid, &uExt, 0, gridSize, idwPow, idwRad, 
+					cBands[i], kcdEntryLens, kpIDisTable, eigs, 
+					kpConTable);
+		SetSmoothEnergies(&grid, uExt, 0, gridSize, smearParams, diffs);
 		SetDerivs(&grid, 0, gridSize);
 
 		///Uncomment to write band interpolations
 		///int pivot = FindMinima(grid, gridSize, 0);
+		///int pivot = FindIndex(grid, gridSize, 0., 0., 0.);
 		///WriteBS("cx", grid, 0, pivot);
 		///WriteBS("cy", grid, 1, pivot);
 		///WriteBS("cz", grid, 2, pivot);
@@ -121,17 +125,19 @@ int main(int argc, char *argv[]){
 	InitMinv(&hMinv, nVMus, vMus, nVTemps, vTemps);
 	for(unsigned int i = 0; i < nVBands; ++i){
 		printf(" band %i / %i", i + 1, nVBands);
-		SetEnergies(&grid, 0, gridSize, idwPow, idwRad, vBands[i], 
-					kcdEntryLens, kpIDisTable, eigs, kpConTable);
-		SetSmoothEnergies(&grid, 0, gridSize, smearParams, diffs);
+		SetEnergies(&grid, &uExt, 0, gridSize, idwPow, idwRad, 
+					vBands[i], kcdEntryLens, kpIDisTable, eigs, 
+					kpConTable);
+		SetSmoothEnergies(&grid, uExt, 0, gridSize, smearParams, diffs);
 		SetDerivs(&grid, 0, gridSize);
 
 		///Uncomment to write band structures
 		///int pivot = FindMaxima(grid, gridSize, 0);
-		///WriteBS("vx", grid, 0, pivot);
+		///int pivot = FindIndex(grid, gridSize, 0., 0., 0.);
+		///WriteBS("vxN", grid, 0, pivot);
 		///WriteBS("vy", grid, 1, pivot);
-		///WriteBS("vz", grid, 2, pivot);
-		///WriteDiagBS("vxy", grid, 0, 1, pivot);
+		///WriteBS("vzN", grid, 2, pivot);
+		//WriteDiagBS("vxy", grid, 0, 1, pivot);
 		/// 
 		///Uncomment to write full BZ
 		///WriteFullBs("fullV", grid, gridSize);
@@ -148,6 +154,7 @@ int main(int argc, char *argv[]){
 		ClearStdout();
 	}
 	///No longer need most of the stuff on the heap
+	free(uExt);
 	free(smearParams);
 	free(vTemps);
 	free(cTemps);

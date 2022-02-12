@@ -53,11 +53,12 @@ void FillDifferentals(double**, const double*, const int*);
 struct gp** GiveInitGrid(const double*, const int*, const void*, 
 						 const double*, const double, unsigned int*, 
 						 int***, double***, int**);
-void SetEnergies(struct gp***, const int, const int, const int, 
-				 const double, const int, const int*, const double**, 
-				 const double**, const int**);
-void SetSmoothEnergies(struct gp***, const int, const int, 
-					   const double*, const double*);
+void SetEnergies(struct gp***, double **, const int, const int, 
+				 const int, const double, const int, const int*, 
+				 const double**, const double**, const int**);
+void SetSmoothEnergies(struct gp***, const double*,
+					   const int, const int, const double*, 
+					   const double*);
 void SetDerivs(struct gp***, const int, const int);
 void IntegrateC(const struct gp**, const int, const int, double**, 
 			    const double, const double, const double*);

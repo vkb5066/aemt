@@ -219,14 +219,19 @@ struct gp** GiveInitGrid(const double *domain, const int *nGps,
 //Meant to be multithreaded - beg and end are the beginning and end
 //indices of the grid for this thread to go over.  There are no 
 //mutexs here, so make sure begs, ends never overlap!!!
-void SetEnergies(struct gp ***grid, const int beg, const int end,
-				 const int idwPow, const double rad, 
-				 const int bandIndex, 
-				 const int *tableLens, const double **iDists, 
-				 const double **eigs, const int **conTable){
+void SetEnergies(struct gp ***grid, double **ext, const int beg, 
+				 const int end, const int idwPow, const double rad, 
+				 const int bandIndex, const int *tableLens, 
+				 const double **iDists, const double **eigs, 
+				 const int **conTable){
+
+	//Initialize initial bounds to insane numbers
+	(*ext)[0] = fabs(E_LLIM); ///min
+	(*ext)[1] = -fabs(E_LLIM); ///max
 
 	double num = 0.0; double den = 0.0;
 	double wght = 0.0;
+	double nrg = 0.0;
 	const double iRad = 1.0/rad;
 	for(unsigned int i = beg; i < end; ++i){
 		///Inverse distance weighting: doi:10.1145/800186.810616
@@ -243,17 +248,35 @@ void SetEnergies(struct gp ***grid, const int beg, const int end,
 			num += wght*eigs[conTable[i][j]][bandIndex];
 			den += wght;
 		}
+		nrg = num/den;
 
-		(*grid)[i]->nrg = num/den;
+		///Set energy, update (unsmoothed) maxima and minima
+		if(nrg < (*ext)[0]){
+			(*ext)[0] = nrg;
+		}
+		if(nrg > (*ext)[1]){
+			(*ext)[1] = nrg;
+		}
+		(*grid)[i]->nrg = nrg;
 	}
 }
 
 //Sets the first derivative for all grid[beg] to grid[end - 1]
 //dir is the direction to take: 0, 1, 2 for x, y, z
-void SetSmoothEnergies(struct gp ***grid, const int beg, 
-					   const int end, const double *sigmas, 
-					   const double *diffs){
+void SetSmoothEnergies(struct gp ***grid, const double *uExt,
+					   const int beg, const int end, 
+					   const double *sigmas, const double *diffs){
+	//Initialize smoothed extrema to insane values
+	//{xMin, xMax, yMin, yMax, zMin, zMax}
+	double sExt[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};	
+	
+
+	double nrgS = 0.0;
 	for(int dir = 0; dir < 3; ++dir){
+		int lo = 2*dir; int hi = 2*dir + 1;
+
+		sExt[lo] = uExt[0];
+		sExt[hi] = uExt[1];
 		///Sigma small: no gaussian smoothing case
 		if(sigmas[dir] < 1E-5){
 			for(unsigned int i = beg; i < end; ++i){
@@ -261,9 +284,8 @@ void SetSmoothEnergies(struct gp ***grid, const int beg,
 			}
 			continue;
 		}
-
-		int lo = 2*dir; int hi = 2*dir + 1;
 	
+
 		///Gaussian profile, cross-conv array setup
 		double *gProf; int gProfLen;
 		GaussianProfile(&gProf, &gProfLen, sigmas[dir], STD_CUTOFF);
@@ -310,9 +332,22 @@ void SetSmoothEnergies(struct gp ***grid, const int beg,
 				ext += 2;
 			}
 		
-			///Set smoothed energy
-			(*grid)[i]->nrgS[dir] = CConvS(x, gProf, gProfLen);
+			///Set smoothed energy, update maxima
+			/// !!! WARNING !!! if this eventually gets multithreaded
+			/// you'll have to have a bunch of different extremas
+			/// for each thread and then combine to find the ultimate
+			/// maxima later.  This will be much better than locking, 
+			/// unlocking threads for every comparison.  
+			nrgS = CConvS(x, gProf, gProfLen);
+			if(nrgS < sExt[lo]){
+				sExt[lo] = nrgS;
+			}
+			if(nrgS > sExt[hi]){
+				sExt[hi] = nrgS;
+			}
+			(*grid)[i]->nrgS[dir] = nrgS;
 		}
+
 
 		free(gProf);
 		for(unsigned int i = 0; i < 2*gProfLen; ++i){
@@ -323,22 +358,26 @@ void SetSmoothEnergies(struct gp ***grid, const int beg,
 		free(toFree);
 	}
 
-	//Set the absolute energies to average of the smoothed energies
-	//since they'll be used for fermi distrubutions.  This introduces
-	//a small error in the E - mu term (the band extrema shift lower/
-	//higher for valance / conduction bands.
-	//
-	// 	   TODO:
-	// 
-	//Attempt to fix this by keeping track of the original extrema 
-	//value then adding a constant correction term to each band's
-	//smoothed energy.  This is easy if [beg, end) contains the whole
-	//grid (as it does for no multithreading), but if multithreading
-	//is implemented, [beg, end) may not contain the band extrema.  
+	//Re-scale smoothed energies to be between original energy's max
+	//and min (gaussian with large sigma tends to make bands too 
+	//shallow)
+	//Also, set the (prev unscaled) energy to the average of the 
+	//three rescaled, smooth energies since it is used for fermi
+	//distributions
+	double sFacs[3];
+	for(unsigned int i = 0; i < 3; ++i){
+		sFacs[i] = (uExt[1] - uExt[0]) / (sExt[2*i + 1] - sExt[2*i]);
+	}
+	double tripSum;
 	for(unsigned int i = beg; i < end; ++i){
-		(*grid)[i]->nrg = ((*grid)[i]->nrgS[0] + 
-						   (*grid)[i]->nrgS[1] + 
-						   (*grid)[i]->nrgS[2])/3.0;
+		tripSum = 0.0;
+		for(unsigned int j = 0; j < 3; ++j){
+			(*grid)[i]->nrgS[j] = uExt[0] + sFacs[j]*(
+								  (*grid)[i]->nrgS[j] - sExt[2*j]
+													  );
+			tripSum += (*grid)[i]->nrgS[j];
+		}
+		(*grid)[i]->nrg = tripSum/3.0;
 	}
 }
 
